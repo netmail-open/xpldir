@@ -1,0 +1,159 @@
+#ifndef XPLDIR_H
+#define XPLDIR_H
+
+#cmakedefine HAVE_VALGRIND_H	1
+#cmakedefine HAVE_MMAN_H		1
+
+/*
+	Platform defines
+
+	The use of these should be limited as much as possible.  Specific tests for
+	features of the platform are prefered.
+*/
+#ifndef LINUX
+#cmakedefine LINUX					1
+#endif
+
+#ifndef WIN32
+#cmakedefine WIN32					1
+#endif
+#ifndef WINDOWS
+#cmakedefine WINDOWS				1
+
+#endif
+
+
+#ifndef MACOSX
+#cmakedefine MACOSX					1
+#endif
+#ifndef DARWIN
+#cmakedefine DARWIN					1
+#endif
+#ifndef APPLE
+#cmakedefine APPLE					1
+#endif
+
+#cmakedefine DEBUG					1
+
+
+
+/* File and Directory Functions */
+
+#if defined(LINUX) || defined(MACOSX)
+
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <dirent.h>
+
+/* Limits */
+#if defined (PATH_MAX)
+# define XPL_MAX_PATH PATH_MAX
+#elif defined (MAX_PATH)
+# define XPL_MAX_PATH MAX_PATH
+#elif defined (_PC_PATH_MAX)
+# define XPL_MAX_PATH sysconf(_PC_PATH_MAX)
+#elif defined (_MAX_PATH)
+# define XPL_MAX_PATH _MAX_PATH
+#else
+# error "XPL_MAX_PATH is not implemented on this platform"
+#endif
+
+
+typedef struct _XplDir {
+   unsigned long  d_attr;
+   unsigned long  d_size;
+   unsigned char *d_name;
+   unsigned long  d_cdatetime;
+   DIR *dirp;
+   struct dirent *direntp;
+   unsigned char Path[XPL_MAX_PATH];
+} XplDir;
+
+#ifdef __cplusplus
+extern "C"{
+#endif
+
+int XplMakeDir(const char *path);
+
+#ifdef __cplusplus
+}
+#endif
+
+#elif defined(WIN32)
+
+#include <direct.h>
+#include <io.h>
+
+typedef struct _XplDir {
+   unsigned long		 d_attr;
+   unsigned long		 d_size;
+   unsigned char		 *d_name;
+   unsigned long		 d_cdatetime;
+   long					 dirp;
+   struct _finddata_t	FindData;
+   unsigned char		 Path[_MAX_PATH+1];
+} XplDir;
+
+#define   XplMakeDir(path) mkdir(path)
+
+#endif
+
+typedef struct _XplDirMatch {
+   struct _XplDirMatch *next;
+   struct _XplDirMatch *base;
+
+   unsigned long d_attr;
+   unsigned long d_size;
+   unsigned long d_cdatetime;
+
+   unsigned char *d_name;
+
+	struct {
+		void *data;
+		void *lock;
+	} client;
+} XplDirMatch;
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+EXPORT XplDir *XplOpenDir(const char  *dirname);
+EXPORT XplDir *XplReadDir(XplDir *dirp);
+EXPORT int XplCloseDir(XplDir *dirp);
+EXPORT int XplIsSubDir(XplDir *dirp);
+
+EXPORT XplDirMatch *XplOpenDirMatch(const char *pattern);
+EXPORT XplDirMatch *XplReadDirMatch(XplDirMatch *dirp);
+EXPORT XplDirMatch *XplResetDirMatch(XplDirMatch *dirp);
+EXPORT int XplCloseDirMatch(XplDirMatch *dirp);
+EXPORT void XplMakePath(const char *path);
+EXPORT int XplStat( const char *path, struct stat *st );
+
+
+#if defined(WIN32)
+	#define XplGetCurrentDir _getcwd
+#else
+	#define XplGetCurrentDir getcwd
+#endif
+
+typedef struct
+{
+	struct stat		st;
+	char			d_name[256];
+}XDirEnt;
+
+typedef struct
+{
+	void	*dirp;
+	void	(*XFree)(void *);
+	XDirEnt	entry;
+	char	*pattern;
+	char	name[];
+}XDir;
+
+EXPORT XDir *XOpenDir( const char *path, void *(*XAlloc)(size_t), void (*XFree)(void *) );
+EXPORT XDirEnt *XReadDir( XDir *dir );
+EXPORT int XCloseDir( XDir *dir );
+
+#endif // XPLDIR_H
